@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add: [ NET_ADMIN ]
+    devices: [ /dev/net/tun:/dev/net/tun ]
+    environment:
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=wireguard
+      - PROXY=on
+    ports:
+      - 8888:8888/tcp # SOCKS5/HTTP Proxy
+    restart: always
+
+  grass-node:
+    build: ./docker/grass-node
+    network_mode: "service:gluetun"
+    depends_on: [ gluetun ]
+    restart: always
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3001:3000
+    depends_on: [ prometheus ]
+    restart: always
+
+  node-exporter:
+    image: prom/node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: always
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600
+    restart: always
